@@ -11,6 +11,8 @@ local.properties
 /app/build
 *.keystore
 *.jks
+keystore.properties
+*.base64
 *.log
 *-i-wanna-create-a-*.txt
 .claude/
