@@ -33,9 +33,40 @@ An Android app for managing a [Hexo](https://hexo.io/) blog hosted on GitHub. Wr
 # Build and install on connected device
 ./gradlew installDebug
 
+# Build signed release APK (requires keystore.properties)
+./gradlew assembleRelease
+
 # Check for compilation errors
 ./gradlew compileDebugKotlin
 ```
+
+### Release signing
+
+For local release builds, create `keystore.properties` at the project root:
+
+```properties
+storeFile=release.jks
+storePassword=your-keystore-password
+keyAlias=dinana
+keyPassword=your-key-password
+```
+
+Generate a keystore if you don't have one:
+
+```bash
+keytool -genkey -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias dinana
+```
+
+## Release
+
+Pushing a tag matching `v*` (e.g. `v1.0.0`) triggers CI to build and sign a release APK and create a GitHub Release with the APK attached:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Manual workflow dispatch is also available for testing (builds APK without creating a release).
 
 ## Tech Stack
 
