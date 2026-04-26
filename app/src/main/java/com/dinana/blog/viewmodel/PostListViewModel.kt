@@ -50,6 +50,7 @@ class PostListViewModel(
     }
 
     fun loadPosts() {
+        checkConfiguration()
         if (!tokenManager.isConfigured) {
             Log.w(TAG, "loadPosts: skipped - not configured")
             return
@@ -58,13 +59,13 @@ class PostListViewModel(
         Log.d(TAG, "loadPosts: owner=${tokenManager.owner} repo=${tokenManager.repo}")
         val isRefresh = _uiState.value.posts.isNotEmpty()
 
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                isLoading = !isRefresh,
-                isRefreshing = isRefresh,
-                error = null
-            )
+        _uiState.value = _uiState.value.copy(
+            isLoading = !isRefresh,
+            isRefreshing = isRefresh,
+            error = null
+        )
 
+        viewModelScope.launch {
             val result = repository.listPosts(
                 owner = tokenManager.owner,
                 repo = tokenManager.repo

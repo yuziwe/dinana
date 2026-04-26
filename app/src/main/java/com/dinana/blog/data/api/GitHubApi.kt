@@ -16,7 +16,7 @@ import android.util.Log
 import kotlinx.serialization.json.put
 import java.util.concurrent.TimeUnit
 
-class GitHubApi(private val token: String) {
+class GitHubApi(private val tokenProvider: () -> String) {
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = false }
     private val client = OkHttpClient.Builder()
@@ -35,7 +35,7 @@ class GitHubApi(private val token: String) {
     private fun buildAuthRequest(url: String): Request.Builder {
         return Request.Builder()
             .url(url)
-            .header("Authorization", "Bearer $token")
+            .header("Authorization", "Bearer ${tokenProvider()}")
             .header("Accept", "application/vnd.github.v3+json")
     }
 
