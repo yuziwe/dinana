@@ -1,61 +1,84 @@
 package com.dinana.blog.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TopAppBarColors
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 
 private val LightColorScheme = lightColorScheme(
-    primary = Black,
-    onPrimary = White,
-    primaryContainer = Gray100,
-    onPrimaryContainer = Black,
+    primary = GitHubBlue,
+    onPrimary = Gray00,
+    primaryContainer = GitHubBlueLight,
+    onPrimaryContainer = GitHubHeader,
 
-    secondary = Gray700,
-    onSecondary = White,
+    secondary = Gray500,
+    onSecondary = Gray00,
     secondaryContainer = Gray100,
-    onSecondaryContainer = Black,
+    onSecondaryContainer = Gray700,
 
-    tertiary = Gray500,
-    onTertiary = White,
+    tertiary = GitHubGreen,
+    onTertiary = Gray00,
 
-    background = White,
-    onBackground = Black,
+    background = Gray00,
+    onBackground = Gray900,
 
-    surface = White,
-    onSurface = Black,
+    surface = Gray00,
+    onSurface = Gray900,
     surfaceVariant = Gray50,
     onSurfaceVariant = Gray500,
 
-    error = Black,
-    onError = White,
+    outline = Gray200,
+    outlineVariant = Gray100,
+
+    error = GitHubRed,
+    onError = Gray00,
+    errorContainer = Color(0xFFFFDFE0),
+    onErrorContainer = Color(0xFF8B1A1A),
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary = White,
-    onPrimary = Black,
-    primaryContainer = Gray800,
-    onPrimaryContainer = White,
+    primary = GitHubBlueDark,
+    onPrimary = Gray900,
+    primaryContainer = Color(0xFF0D419D),
+    onPrimaryContainer = GitHubBlueLight,
 
-    secondary = Gray300,
-    onSecondary = Black,
+    secondary = Gray400,
+    onSecondary = Gray900,
     secondaryContainer = Gray700,
-    onSecondaryContainer = White,
+    onSecondaryContainer = Gray200,
 
-    tertiary = Gray500,
-    onTertiary = Black,
+    tertiary = GitHubGreenDark,
+    onTertiary = Gray900,
 
-    background = Black,
-    onBackground = White,
+    background = DarkBg,
+    onBackground = Gray200,
 
-    surface = Gray900,
-    onSurface = White,
-    surfaceVariant = Gray800,
-    onSurfaceVariant = Gray300,
+    surface = DarkSurface,
+    onSurface = Gray200,
+    surfaceVariant = DarkSurfaceVariant,
+    onSurfaceVariant = Gray400,
 
-    error = White,
-    onError = Black,
+    outline = DarkBorder,
+    outlineVariant = Gray700,
+
+    error = GitHubRedDark,
+    onError = Gray900,
+    errorContainer = Color(0xFF5C1010),
+    onErrorContainer = Color(0xFFFFDFE0),
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun appBarColors(): TopAppBarColors = TopAppBarDefaults.topAppBarColors(
+    containerColor = GitHubHeader,
+    titleContentColor = Gray00,
+    navigationIconContentColor = Gray00,
+    actionIconContentColor = Gray00,
 )
 
 @Composable

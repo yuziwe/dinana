@@ -9,7 +9,7 @@ class AppContainer(context: Application) {
     val tokenManager = TokenManager(context)
 
     fun provideRepository(): BlogRepository {
-        return BlogRepository(GitHubApi(tokenManager.token))
+        return BlogRepository(GitHubApi { tokenManager.token })
     }
 }
 

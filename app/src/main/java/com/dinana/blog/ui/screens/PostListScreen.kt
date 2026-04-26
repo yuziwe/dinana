@@ -20,7 +20,7 @@ import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
@@ -37,7 +37,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
+import com.dinana.blog.ui.theme.Gray00
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.dinana.blog.data.repository.BlogPost
+import com.dinana.blog.ui.theme.appBarColors
 import com.dinana.blog.viewmodel.SortOrder
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
@@ -88,26 +89,22 @@ fun PostListScreen(
                     IconButton(onClick = onToggleSort) {
                         Icon(
                             imageVector = when (sortOrder) {
-                                SortOrder.NAME -> Icons.Default.Sort
+                                SortOrder.NAME -> Icons.AutoMirrored.Filled.Sort
                                 SortOrder.DATE_DESC -> Icons.Default.ArrowDownward
                                 SortOrder.DATE_ASC -> Icons.Default.ArrowUpward
                             },
                             contentDescription = "Sort",
                             tint = if (sortOrder != SortOrder.NAME)
-                                MaterialTheme.colorScheme.onPrimary
+                                Gray00
                             else
-                                MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.6f)
+                                Gray00.copy(alpha = 0.6f)
                         )
                     }
                     IconButton(onClick = onSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
-                )
+                colors = appBarColors()
             )
         },
         floatingActionButton = {
