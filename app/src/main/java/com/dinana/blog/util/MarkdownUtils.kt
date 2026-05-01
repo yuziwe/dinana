@@ -7,9 +7,8 @@ object MarkdownUtils {
 
     fun slugify(title: String): String {
         return title.trim()
-            .lowercase()
             .replace(Regex("\\s+"), "-")
-            .replace(Regex("[^a-z0-9\\u4e00-\\u9fa5\\-]"), "")
+            .replace(Regex("[^a-zA-Z0-9\\u4e00-\\u9fa5\\-]"), "")
             .trim('-')
             .ifEmpty { "untitled" }
     }
