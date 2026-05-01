@@ -10,6 +10,8 @@ An Android app for managing a [Hexo](https://hexo.io/) blog hosted on GitHub. Wr
 - **GitHub integration** — uses the GitHub Contents API and Git Data API to commit directly to your blog repo
 - **Pull-to-refresh** — swipe to reload the post list
 - **Sorting** — sort posts by name or publish date (parsed from front matter)
+- **Auto-update** — checks for new versions on startup; downloads and installs APK with one tap
+- **Theme** — GitHub-inspired light and dark mode, adaptive status bar
 
 ## Requirements
 
@@ -59,11 +61,11 @@ keytool -genkey -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 100
 
 ## Release
 
-Pushing a tag matching `v*` (e.g. `v1.0.0`) triggers CI to build and sign a release APK and create a GitHub Release with the APK attached:
+Pushing a tag matching `v*` (e.g. `v1.1.0`) triggers CI to build and sign a release APK and create a GitHub Release with the APK attached. The app version is automatically derived from the tag at build time.
 
 ```bash
-git tag v1.0.0
-git push origin v1.0.0
+git tag v1.1.0
+git push origin v1.1.0
 ```
 
 Manual workflow dispatch is also available for testing (builds APK without creating a release).
@@ -99,7 +101,10 @@ ViewModels (StateFlow<UiState>)
 Compose Screens
   ├── PostListScreen       — Post list with pull-to-refresh
   ├── EditorScreen         — Markdown editor with preview toggle
-  └── SettingsScreen       — GitHub credentials form
+  └── SettingsScreen       — GitHub credentials form, update check
+
+Utilities
+  └── UpdateUtils          — APK download and package installer
 ```
 
 Blog posts live in `source/_posts/` in your GitHub repo. The app uses the GitHub Contents API for single-file operations and the Git Data API for batch commits (save with images, delete with assets).
