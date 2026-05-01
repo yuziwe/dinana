@@ -37,7 +37,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import com.dinana.blog.ui.theme.Gray00
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -95,9 +95,9 @@ fun PostListScreen(
                             },
                             contentDescription = "Sort",
                             tint = if (sortOrder != SortOrder.NAME)
-                                Gray00
+                                LocalContentColor.current
                             else
-                                Gray00.copy(alpha = 0.6f)
+                                LocalContentColor.current.copy(alpha = 0.6f)
                         )
                     }
                     IconButton(onClick = onSettings) {

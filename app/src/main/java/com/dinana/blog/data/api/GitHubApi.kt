@@ -33,10 +33,14 @@ class GitHubApi(private val tokenProvider: () -> String) {
     }
 
     private fun buildAuthRequest(url: String): Request.Builder {
-        return Request.Builder()
+        val token = tokenProvider()
+        val builder = Request.Builder()
             .url(url)
-            .header("Authorization", "Bearer ${tokenProvider()}")
             .header("Accept", "application/vnd.github.v3+json")
+        if (token.isNotBlank()) {
+            builder.header("Authorization", "Bearer $token")
+        }
+        return builder
     }
 
     suspend fun listContents(owner: String, repo: String, path: String = ""): Result<List<GitHubContent>> {
@@ -216,6 +220,11 @@ class GitHubApi(private val tokenProvider: () -> String) {
             .post(body)
             .build()
         return executeRequest(httpRequest) { json.decodeFromString(it) }
+    }
+
+    suspend fun getLatestRelease(owner: String, repo: String): Result<GitHubRelease> {
+        val url = "$BASE_URL/repos/$owner/$repo/releases/latest"
+        return runRequest(url) { json.decodeFromString(it) }
     }
 
     private suspend fun <T> executeRequest(

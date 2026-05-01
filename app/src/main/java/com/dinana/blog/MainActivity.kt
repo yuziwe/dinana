@@ -3,14 +3,28 @@ package com.dinana.blog
 import android.os.Bundle
 import android.widget.Toast
 import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -26,11 +40,20 @@ import com.dinana.blog.navigation.Routes
 import com.dinana.blog.ui.screens.EditorScreen
 import com.dinana.blog.ui.screens.PostListScreen
 import com.dinana.blog.ui.screens.SettingsScreen
+import com.dinana.blog.data.api.GitHubApi
+import com.dinana.blog.data.api.GitHubRelease
 import com.dinana.blog.ui.theme.DinanaTheme
+import com.dinana.blog.util.UpdateUtils
+import kotlinx.coroutines.launch
 import com.dinana.blog.viewmodel.*
 
 // Simple ViewModel factory for manual DI
-class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.Factory {
+class ViewModelFactory(
+    private val container: AppContainer,
+    private val currentVersion: String,
+    private val appOwner: String,
+    private val appRepo: String,
+) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         return when {
@@ -43,7 +66,11 @@ class ViewModelFactory(private val container: AppContainer) : ViewModelProvider.
                 container.tokenManager
             ) as T
             modelClass == SettingsViewModel::class.java -> SettingsViewModel(
-                container.tokenManager
+                container.tokenManager,
+                GitHubApi { container.tokenManager.token },
+                currentVersion,
+                appOwner,
+                appRepo
             ) as T
             else -> throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
         }
@@ -55,7 +82,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         val container = (application as DinanaApp).container
-        val factory = ViewModelFactory(container)
+        val factory = ViewModelFactory(
+            container,
+            BuildConfig.VERSION_NAME,
+            getString(R.string.dinana_github_owner),
+            getString(R.string.dinana_github_repo)
+        )
 
         setContent {
             DinanaTheme {
@@ -73,6 +105,26 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun DinanaNavHost(factory: ViewModelFactory) {
     val navController = rememberNavController()
+    val context = LocalContext.current
+
+    // Startup update check (runs once on app launch)
+    val app = context.applicationContext as DinanaApp
+    val appOwner = context.getString(R.string.dinana_github_owner)
+    val appRepo = context.getString(R.string.dinana_github_repo)
+    var updateAvailable by remember { mutableStateOf<GitHubRelease?>(null) }
+    var isDownloading by remember { mutableStateOf(false) }
+    var downloadError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        val api = GitHubApi { app.container.tokenManager.token }
+        val result = api.getLatestRelease(appOwner, appRepo)
+        result.onSuccess { release ->
+            if (isNewerVersion(release.tagName, BuildConfig.VERSION_NAME)) {
+                updateAvailable = release
+            }
+        }
+    }
 
     NavHost(navController = navController, startDestination = Routes.POST_LIST) {
         composable(Routes.POST_LIST) {
@@ -194,6 +246,10 @@ fun DinanaNavHost(factory: ViewModelFactory) {
                 repo = state.repo,
                 branch = state.branch,
                 isConfigured = state.isConfigured,
+                isCheckingUpdate = state.isCheckingUpdate,
+                updateAvailable = state.updateAvailable,
+                isUpToDate = state.isUpToDate,
+                appVersion = state.appVersion,
                 onTokenChange = { vm.updateToken(it) },
                 onOwnerChange = { vm.updateOwner(it) },
                 onRepoChange = { vm.updateRepo(it) },
@@ -202,8 +258,100 @@ fun DinanaNavHost(factory: ViewModelFactory) {
                     vm.saveSettings()
                     navController.popBackStack()
                 },
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onCheckUpdate = { vm.checkForUpdate() },
+                onDismissUpdate = { vm.dismissUpdate() },
+                onClearUpToDate = { vm.clearUpToDate() },
             )
         }
     }
+
+    // Update dialog (shown on top of any screen)
+    updateAvailable?.let { release ->
+        AlertDialog(
+            onDismissRequest = { if (!isDownloading) { updateAvailable = null; downloadError = null } },
+            title = { Text("Update Available ${release.tagName}") },
+            text = {
+                Column {
+                    Text("A new version of Dinana is available.")
+                    if (!release.body.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = release.body,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (isDownloading) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Downloading...",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                    downloadError?.let {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            it,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                if (!isDownloading) {
+                    TextButton(onClick = {
+                        isDownloading = true
+                        downloadError = null
+                        scope.launch {
+                            try {
+                                val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk") }
+                                if (apkAsset != null) {
+                                    UpdateUtils.downloadAndInstallApk(
+                                        context, apkAsset.browserDownloadUrl, release.tagName
+                                    )
+                                    updateAvailable = null
+                                } else {
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(release.htmlUrl))
+                                    context.startActivity(intent)
+                                    updateAvailable = null
+                                }
+                            } catch (e: Exception) {
+                                downloadError = "Download failed: ${e.message}"
+                                isDownloading = false
+                            }
+                        }
+                    }) {
+                        Text("Update")
+                    }
+                }
+            },
+            dismissButton = {
+                if (!isDownloading) {
+                    TextButton(onClick = { updateAvailable = null; downloadError = null }) {
+                        Text("Later")
+                    }
+                }
+            }
+        )
+    }
+}
+
+private fun isNewerVersion(latestTag: String, current: String): Boolean {
+    val latest = latestTag.removePrefix("v").split(".").map { it.toIntOrNull() ?: 0 }
+    val currentParts = current.split(".").map { it.toIntOrNull() ?: 0 }
+    for (i in 0 until maxOf(latest.size, currentParts.size)) {
+        val l = latest.getOrElse(i) { 0 }
+        val c = currentParts.getOrElse(i) { 0 }
+        if (l != c) return l > c
+    }
+    return false
 }

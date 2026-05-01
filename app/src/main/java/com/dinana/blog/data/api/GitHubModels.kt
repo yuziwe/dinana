@@ -121,3 +121,19 @@ data class UpdateRefRequest(
     val sha: String,
     val force: Boolean = false
 )
+
+@Serializable
+data class ReleaseAsset(
+    val name: String,
+    @SerialName("browser_download_url") val browserDownloadUrl: String = "",
+    @SerialName("content_type") val contentType: String? = null,
+    val size: Long = 0,
+)
+
+@Serializable
+data class GitHubRelease(
+    @SerialName("tag_name") val tagName: String,
+    @SerialName("html_url") val htmlUrl: String,
+    @SerialName("body") val body: String? = null,
+    val assets: List<ReleaseAsset> = emptyList(),
+)

@@ -5,6 +5,7 @@ plugins {
 }
 
 import java.util.Properties
+import java.util.concurrent.TimeUnit
 
 // Load keystore.properties for local release builds
 val keystorePropertiesFile = rootProject.file("keystore.properties")
@@ -12,6 +13,31 @@ val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
+
+fun runCommand(command: String, dir: File): String = try {
+    val proc = ProcessBuilder(command.split("\\s".toRegex()))
+        .directory(dir)
+        .redirectOutput(ProcessBuilder.Redirect.PIPE)
+        .redirectError(ProcessBuilder.Redirect.PIPE)
+        .start()
+    if (proc.waitFor(2, TimeUnit.SECONDS)) {
+        proc.inputStream.bufferedReader().readText().trim()
+    } else {
+        proc.destroyForcibly()
+        ""
+    }
+} catch (_: Exception) { "" }
+
+// Derive version from Git tag (e.g. "v1.0.2" -> "1.0.2"), fallback to "1.0.0"
+val appVersion = runCommand("git tag --points-at HEAD", rootProject.projectDir)
+    .removePrefix("v").ifBlank { "1.0.0" }
+val gitSha = runCommand("git rev-parse --short HEAD", rootProject.projectDir)
+
+// Derive versionCode from semver (e.g. "1.0.2" -> 10002, "2.3.4" -> 20304)
+val versionParts = appVersion.split(".").map { it.toIntOrNull() ?: 0 }
+val appVersionCode = versionParts.getOrElse(0) { 1 } * 10000 +
+    versionParts.getOrElse(1) { 0 } * 100 +
+    versionParts.getOrElse(2) { 0 }
 
 // Signing config: try local properties first, then CI env vars
 val ksFile = keystoreProperties.getProperty("storeFile") ?: System.getenv("KEYSTORE_PATH")
@@ -29,8 +55,8 @@ android {
         applicationId = "com.dinana.blog"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersion
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -73,6 +99,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     composeOptions {

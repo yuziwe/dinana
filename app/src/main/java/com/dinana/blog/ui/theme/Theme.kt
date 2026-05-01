@@ -8,7 +8,11 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 
 private val LightColorScheme = lightColorScheme(
     primary = GitHubBlue,
@@ -74,12 +78,13 @@ private val DarkColorScheme = darkColorScheme(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun appBarColors(): TopAppBarColors = TopAppBarDefaults.topAppBarColors(
-    containerColor = GitHubHeader,
-    titleContentColor = Gray00,
-    navigationIconContentColor = Gray00,
-    actionIconContentColor = Gray00,
-)
+fun appBarColors(darkTheme: Boolean = isSystemInDarkTheme()): TopAppBarColors =
+    TopAppBarDefaults.topAppBarColors(
+        containerColor = if (darkTheme) GitHubHeader else Gray00,
+        titleContentColor = if (darkTheme) Gray00 else Gray900,
+        navigationIconContentColor = if (darkTheme) Gray00 else Gray900,
+        actionIconContentColor = if (darkTheme) Gray00 else Gray900,
+    )
 
 @Composable
 fun DinanaTheme(
@@ -87,6 +92,15 @@ fun DinanaTheme(
     content: @Composable () -> Unit
 ) {
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as android.app.Activity).window
+            window.statusBarColor = if (darkTheme) GitHubHeader.toArgb() else Gray00.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+        }
+    }
 
     MaterialTheme(
         colorScheme = colorScheme,

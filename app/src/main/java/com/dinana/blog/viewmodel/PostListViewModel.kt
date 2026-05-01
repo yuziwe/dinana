@@ -21,7 +21,7 @@ data class PostListUiState(
     val error: String? = null,
     val message: String? = null,
     val isConfigured: Boolean = false,
-    val sortOrder: SortOrder = SortOrder.NAME
+    val sortOrder: SortOrder = SortOrder.DATE_DESC
 )
 
 class PostListViewModel(
@@ -74,8 +74,17 @@ class PostListViewModel(
             result.fold(
                 onSuccess = { posts ->
                     Log.d(TAG, "loadPosts: success, ${posts.size} posts loaded")
+                    val enriched = if (_uiState.value.sortOrder != SortOrder.NAME && posts.any { it.date == null }) {
+                        repository.enrichWithDates(
+                            owner = tokenManager.owner,
+                            repo = tokenManager.repo,
+                            posts = posts
+                        )
+                    } else {
+                        posts
+                    }
                     _uiState.value = _uiState.value.copy(
-                        posts = posts,
+                        posts = enriched,
                         isLoading = false,
                         isRefreshing = false,
                         error = null

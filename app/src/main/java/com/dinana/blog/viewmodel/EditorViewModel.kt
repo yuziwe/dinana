@@ -123,6 +123,10 @@ class EditorViewModel(
 
             val sha = state.existingSha
             val slug = state.slug.ifBlank { MarkdownUtils.slugify(state.title) }
+            // Use original path for existing posts, slug-based for new ones
+            val originalSlug = state.existingPath?.removeSuffix(".md")?.substringAfterLast("/")
+            val fileName = originalSlug?.let { "$it.md" } ?: "$slug.md"
+            val postSlug = originalSlug ?: slug
             val content = if (sha == null) {
                 MarkdownUtils.generateFrontMatter(state.title) + state.content
             } else {
@@ -133,7 +137,7 @@ class EditorViewModel(
                 repository.pushPost(
                     owner = tokenManager.owner,
                     repo = tokenManager.repo,
-                    fileName = "$slug.md",
+                    fileName = fileName,
                     content = content,
                     existingSha = sha,
                     branch = tokenManager.branch
@@ -142,7 +146,7 @@ class EditorViewModel(
                 repository.pushPostWithImages(
                     owner = tokenManager.owner,
                     repo = tokenManager.repo,
-                    slug = slug,
+                    slug = postSlug,
                     content = content,
                     images = stagedImages.toList(),
                     existingPostSha = sha,

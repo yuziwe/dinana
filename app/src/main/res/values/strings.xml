@@ -15,4 +15,6 @@
     <string name="retry">Retry</string>
     <string name="post_title_hint">Post title (used as filename)</string>
     <string name="post_content_hint">Write your markdown here…</string>
+    <string name="dinana_github_owner">yuziwe</string>
+    <string name="dinana_github_repo">dinana</string>
 </resources>
