@@ -30,7 +30,7 @@ No test framework is configured. There are no test files.
 ### Stack
 
 - **Language**: Kotlin, no coroutines Flow—uses `StateFlow` with `collectAsStateWithLifecycle`
-- **UI**: Jetpack Compose + Material3, monochrome/gray custom color scheme
+- **UI**: Jetpack Compose + Material3, GitHub Primer-inspired color scheme (light/dark)
 - **Navigation**: Jetpack Navigation Compose (3 routes: PostList, Editor, Settings)
 - **DI**: Manual via `AppContainer` in the `Application` class + a `ViewModelFactory` with a `when` block
 - **API layer**: OkHttp directly (no Retrofit), kotlinx.serialization for JSON
@@ -47,7 +47,7 @@ viewmodel/         — PostListViewModel, EditorViewModel, SettingsViewModel
 ui/screens/        — PostListScreen, EditorScreen, SettingsScreen
 ui/components/     — MarkdownPreview (wraps Markwon)
 ui/theme/          — Color, Theme, Typography (monochrome palette)
-util/              — MarkdownUtils (slugify, front matter, image URL resolution)
+util/              — MarkdownUtils (slugify, front matter, image URL resolution), UpdateUtils (APK download + install)
 navigation/        — Routes object (route constants + helper)
 ```
 
@@ -75,18 +75,24 @@ navigation/        — Routes object (route constants + helper)
 - Pull-to-refresh via `pullRefresh` modifier (Material, not Material3)
 - Toast-based transient messages surfaced via `LaunchedEffect` observing `message` in UI state
 - Sort cycling: `NAME` → `DATE_DESC` → `DATE_ASC` (date values parsed from YAML front matter via `BlogRepository.enrichWithDates()`)
+- Default sort order is `DATE_DESC`
 - Every network error is shown inline; retry buttons appear on failure
 - `EditorScreen` uses Edit/Preview toggle with Markwon-based `MarkdownPreview` component
+- `AlertDialog` with download progress shown from NavHost level for startup update check
+- Status bar color syncs with theme via `SideEffect` in `DinanaTheme`
 
 ### Key Design Decisions
 
 - No Retrofit — raw OkHttp calls wrapped with `withContext(Dispatchers.IO)` (30s connect/read/write timeouts)
-- No Hilt/Dagger — manual `ViewModelFactory` in `MainActivity.kt:28-46`
+- No Hilt/Dagger — manual `ViewModelFactory` in `MainActivity.kt` with a `when` block
 - GitHub Contents API (not GraphQL) — operates on `source/_posts/` directory
 - Image uploads go into `source/_posts/{slug}/` alongside the markdown file
 - Blog posts are Hexo-style markdown with YAML front matter
 - `MarkdownUtils.resolveImageUrls()` rewrites relative image refs to raw.githubusercontent.com URLs
 - Posts are identified by filename — the slug (URL-safe title) becomes `{slug}.md`
+- App version derived from Git tag at build time (`git tag --points-at HEAD`), fallback to `1.0.0`
+- Update check calls GitHub Releases API for hardcoded repo (`strings.xml`), compares via semver
+- APK download uses OkHttp with file verification; install uses `ACTION_INSTALL_PACKAGE` + FileProvider
 
 ### CRUD Operations (Contents API)
 
