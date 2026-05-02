@@ -65,13 +65,19 @@ class SettingsViewModel(
         _uiState.value = _uiState.value.copy(branch = branch)
     }
 
-    fun saveSettings() {
+    fun saveSettings(): Boolean {
         val state = _uiState.value
+        val changed = tokenManager.token != state.token ||
+            tokenManager.owner != state.owner ||
+            tokenManager.repo != state.repo ||
+            tokenManager.branch != state.branch
+
         tokenManager.token = state.token
         tokenManager.owner = state.owner
         tokenManager.repo = state.repo
         tokenManager.branch = state.branch
         _uiState.value = state.copy(isConfigured = true)
+        return changed
     }
 
     fun checkForUpdate() {

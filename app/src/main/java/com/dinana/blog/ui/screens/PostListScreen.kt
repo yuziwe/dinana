@@ -1,6 +1,14 @@
 package com.dinana.blog.ui.screens
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,29 +23,32 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,14 +57,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dinana.blog.data.repository.BlogPost
 import com.dinana.blog.ui.theme.appBarColors
 import com.dinana.blog.viewmodel.SortOrder
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
+private enum class PostListContentState { NOT_CONFIGURED, LOADING, ERROR, EMPTY, CONTENT }
+
+@OptIn(
+    ExperimentalMaterial3Api::class,
+    ExperimentalMaterialApi::class,
+    ExperimentalFoundationApi::class
+)
 @Composable
 fun PostListScreen(
     posts: List<BlogPost>,
@@ -80,13 +97,31 @@ fun PostListScreen(
         }
     }
     var showDeleteDialog by remember { mutableStateOf<BlogPost?>(null) }
+    val contentState = when {
+        !isConfigured -> PostListContentState.NOT_CONFIGURED
+        isLoading && posts.isEmpty() -> PostListContentState.LOADING
+        error != null && posts.isEmpty() -> PostListContentState.ERROR
+        posts.isEmpty() -> PostListContentState.EMPTY
+        else -> PostListContentState.CONTENT
+    }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Dinana") },
+                title = {
+                    Column {
+                        Text("Dinana")
+                        AnimatedVisibility(visible = isConfigured && posts.isNotEmpty()) {
+                            Text(
+                                text = "${posts.size} posts",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                },
                 actions = {
-                    IconButton(onClick = onToggleSort) {
+                    IconButton(onClick = onToggleSort, enabled = isConfigured) {
                         Icon(
                             imageVector = when (sortOrder) {
                                 SortOrder.NAME -> Icons.AutoMirrored.Filled.Sort
@@ -97,7 +132,7 @@ fun PostListScreen(
                             tint = if (sortOrder != SortOrder.NAME)
                                 LocalContentColor.current
                             else
-                                LocalContentColor.current.copy(alpha = 0.6f)
+                                LocalContentColor.current.copy(alpha = 0.55f)
                         )
                     }
                     IconButton(onClick = onSettings) {
@@ -108,7 +143,7 @@ fun PostListScreen(
             )
         },
         floatingActionButton = {
-            if (isConfigured) {
+            AnimatedVisibility(visible = isConfigured) {
                 FloatingActionButton(onClick = onNewPost) {
                     Icon(Icons.Default.Add, contentDescription = "New Post")
                 }
@@ -126,30 +161,32 @@ fun PostListScreen(
                 .padding(padding)
                 .pullRefresh(pullRefreshState)
         ) {
-            when {
-                !isConfigured -> {
-                    NotConfiguredMessage(onSettings = onSettings)
-                }
-                isLoading && posts.isEmpty() -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                }
-                error != null && posts.isEmpty() -> {
-                    ErrorMessage(error = error, onRetry = onRefresh)
-                }
-                posts.isEmpty() -> {
-                    EmptyState()
-                }
-                else -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(posts, key = { it.path }) { post ->
-                            PostCard(
-                                post = post,
-                                onClick = { onPostClick(post) },
-                                onDelete = { showDeleteDialog = post }
-                            )
+            AnimatedContent(
+                targetState = contentState,
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(180)) togetherWith
+                        fadeOut(animationSpec = tween(120))
+                },
+                label = "post-list-state"
+            ) { state ->
+                when (state) {
+                    PostListContentState.NOT_CONFIGURED -> NotConfiguredMessage(onSettings = onSettings)
+                    PostListContentState.LOADING -> CenteredProgress()
+                    PostListContentState.ERROR -> ErrorMessage(error = error.orEmpty(), onRetry = onRefresh)
+                    PostListContentState.EMPTY -> EmptyState()
+                    PostListContentState.CONTENT -> {
+                        LazyColumn(
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(posts, key = { it.path }) { post ->
+                                PostRow(
+                                    post = post,
+                                    onClick = { onPostClick(post) },
+                                    onDelete = { showDeleteDialog = post },
+                                    modifier = Modifier.animateItemPlacement()
+                                )
+                            }
                         }
                     }
                 }
@@ -186,7 +223,7 @@ fun PostListScreen(
 
     if (isDeleting) {
         AlertDialog(
-            onDismissRequest = { }, // non-cancellable
+            onDismissRequest = { },
             title = { Text("Deleting...") },
             text = {
                 Box(
@@ -202,41 +239,59 @@ fun PostListScreen(
 }
 
 @Composable
-private fun PostCard(
+private fun PostRow(
     post: BlogPost,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .animateContentSize(),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            ) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = null,
+                    modifier = Modifier.padding(9.dp)
+                )
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 14.dp)
+            ) {
                 Text(
                     text = post.title,
                     style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    text = post.fileName,
+                    text = post.subtitle(),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                if (post.size > 0) {
-                    Text(
-                        text = "${post.size} bytes",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
             IconButton(onClick = onDelete) {
                 Icon(
@@ -249,56 +304,64 @@ private fun PostCard(
     }
 }
 
+private fun BlogPost.subtitle(): String {
+    val publishDate = date?.takeIf { it.isNotBlank() }?.take(10)
+    return if (publishDate != null) {
+        "$publishDate  -  $fileName"
+    } else {
+        fileName
+    }
+}
+
+@Composable
+private fun CenteredProgress() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
+    }
+}
+
 @Composable
 private fun NotConfiguredMessage(onSettings: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Welcome to Dinana",
-            style = MaterialTheme.typography.headlineMedium
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = "Configure your GitHub repository to get started.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Spacer(modifier = Modifier.height(24.dp))
-        Button(onClick = onSettings) {
-            Text("Open Settings")
+    EmptyPanel(
+        title = "Welcome to Dinana",
+        body = "Connect your GitHub blog repository to start writing.",
+        action = {
+            Button(onClick = onSettings) {
+                Text("Open Settings")
+            }
         }
-    }
+    )
 }
 
 @Composable
 private fun EmptyState() {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "No blog posts yet",
-            style = MaterialTheme.typography.headlineSmall
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Tap the + button to create your first post.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
+    EmptyPanel(
+        title = "No posts yet",
+        body = "Use the new post button when you are ready to publish."
+    )
 }
 
 @Composable
 private fun ErrorMessage(error: String, onRetry: () -> Unit) {
+    EmptyPanel(
+        title = "Could not load posts",
+        body = error,
+        action = {
+            Button(onClick = onRetry) {
+                Text("Retry")
+            }
+        },
+        isError = true
+    )
+}
+
+@Composable
+private fun EmptyPanel(
+    title: String,
+    body: String,
+    action: (@Composable () -> Unit)? = null,
+    isError: Boolean = false
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -307,13 +370,22 @@ private fun ErrorMessage(error: String, onRetry: () -> Unit) {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = error,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.error
+            text = title,
+            style = MaterialTheme.typography.headlineMedium
         )
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onRetry) {
-            Text("Retry")
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = body,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (isError) {
+                MaterialTheme.colorScheme.error
+            } else {
+                MaterialTheme.colorScheme.onSurfaceVariant
+            }
+        )
+        action?.let {
+            Spacer(modifier = Modifier.height(22.dp))
+            it()
         }
     }
 }

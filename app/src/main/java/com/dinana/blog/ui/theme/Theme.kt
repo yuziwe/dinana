@@ -28,7 +28,7 @@ private val LightColorScheme = lightColorScheme(
     tertiary = GitHubGreen,
     onTertiary = Gray00,
 
-    background = Gray00,
+    background = Gray50,
     onBackground = Gray900,
 
     surface = Gray00,
@@ -80,10 +80,11 @@ private val DarkColorScheme = darkColorScheme(
 @Composable
 fun appBarColors(darkTheme: Boolean = isSystemInDarkTheme()): TopAppBarColors =
     TopAppBarDefaults.topAppBarColors(
-        containerColor = if (darkTheme) GitHubHeader else Gray00,
-        titleContentColor = if (darkTheme) Gray00 else Gray900,
-        navigationIconContentColor = if (darkTheme) Gray00 else Gray900,
-        actionIconContentColor = if (darkTheme) Gray00 else Gray900,
+        containerColor = if (darkTheme) DarkBg else Gray50,
+        scrolledContainerColor = if (darkTheme) DarkSurface else Gray00,
+        titleContentColor = if (darkTheme) Gray200 else Gray900,
+        navigationIconContentColor = if (darkTheme) Gray200 else Gray900,
+        actionIconContentColor = if (darkTheme) Gray200 else Gray900,
     )
 
 @Composable
@@ -97,7 +98,7 @@ fun DinanaTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as android.app.Activity).window
-            window.statusBarColor = if (darkTheme) GitHubHeader.toArgb() else Gray00.toArgb()
+            window.statusBarColor = if (darkTheme) DarkBg.toArgb() else Gray50.toArgb()
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }

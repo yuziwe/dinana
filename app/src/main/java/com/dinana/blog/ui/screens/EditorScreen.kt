@@ -5,6 +5,10 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,15 +26,16 @@ import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -40,11 +45,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.TextRange
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.dinana.blog.ui.components.MarkdownPreview
 import com.dinana.blog.ui.theme.appBarColors
@@ -75,7 +81,6 @@ fun EditorScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // Sync ViewModel content changes (e.g. image upload) back to local field value
     LaunchedEffect(content) {
         if (contentFieldValue.text != content) {
             val newPos = contentFieldValue.selection.start.coerceAtMost(content.length)
@@ -102,7 +107,14 @@ fun EditorScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(if (isEditing) "Edit Post" else "New Post")
+                    Column {
+                        Text(if (isEditing) "Edit Post" else "New Post")
+                        Text(
+                            text = if (slug.isNotBlank()) "$slug.md" else "Draft",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
@@ -121,7 +133,7 @@ fun EditorScreen(
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
                                 strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
+                                color = MaterialTheme.colorScheme.primary
                             )
                         } else {
                             Icon(Icons.Default.Upload, contentDescription = "Push to GitHub")
@@ -136,17 +148,17 @@ fun EditorScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Post title
             OutlinedTextField(
                 value = title,
                 onValueChange = onTitleChange,
-                label = { Text("Post Title") },
+                label = { Text("Title") },
                 placeholder = { Text("My Awesome Post") },
                 supportingText = {
                     Text(
-                        text = if (slug.isNotBlank()) "Filename: ${slug}.md → source/_posts/"
+                        text = if (slug.isNotBlank()) "Will publish to source/_posts/$slug.md"
                         else "Enter a title to generate the filename"
                     )
                 },
@@ -155,9 +167,6 @@ fun EditorScreen(
                 enabled = !isSaving
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-            // Edit / Preview toggle + Image button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -165,84 +174,104 @@ fun EditorScreen(
                 FilterChip(
                     selected = mode == EditorMode.EDIT,
                     onClick = { mode = EditorMode.EDIT },
-                    label = { Text("Edit") },
-                    modifier = Modifier.padding(end = 8.dp)
+                    label = { Text("Edit") }
                 )
+                Spacer(modifier = Modifier.size(8.dp))
                 FilterChip(
                     selected = mode == EditorMode.PREVIEW,
                     onClick = { mode = EditorMode.PREVIEW },
                     label = { Text("Preview") }
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                if (mode == EditorMode.EDIT && slug.isNotBlank()) {
-                    IconButton(onClick = { imagePickerLauncher.launch("image/*") }) {
-                        Icon(
-                            Icons.Default.Image,
-                            contentDescription = "Insert Image",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                Surface(
+                    shape = MaterialTheme.shapes.small,
+                    color = if (mode == EditorMode.EDIT && slug.isNotBlank()) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    contentColor = if (mode == EditorMode.EDIT && slug.isNotBlank()) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                ) {
+                    IconButton(
+                        onClick = { imagePickerLauncher.launch("image/*") },
+                        enabled = mode == EditorMode.EDIT && slug.isNotBlank()
+                    ) {
+                        Icon(Icons.Default.Image, contentDescription = "Insert Image")
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Content area
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-            } else when (mode) {
-                EditorMode.EDIT -> {
-                    OutlinedTextField(
-                        value = contentFieldValue,
-                        onValueChange = { newValue ->
-                            contentFieldValue = newValue
-                            onContentChange(newValue.text)
-                        },
-                        placeholder = { Text("Write your markdown here...") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        textStyle = MaterialTheme.typography.bodyMedium.copy(
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-                        ),
-                        enabled = !isSaving
-                    )
-                }
-                EditorMode.PREVIEW -> {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                    ) {
-                        if (content.isBlank()) {
-                            Box(
+            } else {
+                Crossfade(
+                    targetState = mode,
+                    animationSpec = tween(durationMillis = 180),
+                    label = "editor-mode"
+                ) { currentMode ->
+                    when (currentMode) {
+                        EditorMode.EDIT -> {
+                            OutlinedTextField(
+                                value = contentFieldValue,
+                                onValueChange = { newValue ->
+                                    contentFieldValue = newValue
+                                    onContentChange(newValue.text)
+                                },
+                                placeholder = { Text("Write your markdown here...") },
                                 modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(16.dp)
-                            ) {
-                                Text(
-                                    text = "Nothing to preview",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        } else {
-                            MarkdownPreview(
-                                markdown = processedContent,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .verticalScroll(rememberScrollState())
-                                    .padding(16.dp)
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                    fontFamily = FontFamily.Monospace
+                                ),
+                                enabled = !isSaving
                             )
+                        }
+                        EditorMode.PREVIEW -> {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f)
+                                    .animateContentSize(),
+                                shape = MaterialTheme.shapes.medium,
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                ),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                            ) {
+                                if (content.isBlank()) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(20.dp)
+                                    ) {
+                                        Text(
+                                            text = "Nothing to preview",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                } else {
+                                    MarkdownPreview(
+                                        markdown = processedContent,
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .verticalScroll(rememberScrollState())
+                                            .padding(18.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
 
-            // Error message
             error?.let {
-                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = it,
                     color = MaterialTheme.colorScheme.error,
@@ -254,7 +283,7 @@ fun EditorScreen(
 
     if (isSaving) {
         AlertDialog(
-            onDismissRequest = { }, // non-cancellable
+            onDismissRequest = { },
             title = { Text("Saving...") },
             text = {
                 Box(

@@ -23,13 +23,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -46,6 +43,8 @@ import com.dinana.blog.ui.theme.DinanaTheme
 import com.dinana.blog.util.UpdateUtils
 import kotlinx.coroutines.launch
 import com.dinana.blog.viewmodel.*
+
+private const val REFRESH_POSTS_KEY = "refresh_posts"
 
 // Simple ViewModel factory for manual DI
 class ViewModelFactory(
@@ -127,14 +126,16 @@ fun DinanaNavHost(factory: ViewModelFactory) {
     }
 
     NavHost(navController = navController, startDestination = Routes.POST_LIST) {
-        composable(Routes.POST_LIST) {
+        composable(Routes.POST_LIST) { backStackEntry ->
             val vm: PostListViewModel = viewModel(factory = factory)
             val state by vm.uiState.collectAsStateWithLifecycle()
+            val shouldRefreshPosts by backStackEntry.savedStateHandle
+                .getStateFlow(REFRESH_POSTS_KEY, false)
+                .collectAsStateWithLifecycle()
 
-            // Refresh posts when screen becomes visible (e.g. after saving a new post)
-            val lifecycle = LocalLifecycleOwner.current.lifecycle
-            LaunchedEffect(lifecycle) {
-                lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            LaunchedEffect(shouldRefreshPosts) {
+                if (shouldRefreshPosts) {
+                    backStackEntry.savedStateHandle[REFRESH_POSTS_KEY] = false
                     vm.loadPosts()
                 }
             }
@@ -175,6 +176,9 @@ fun DinanaNavHost(factory: ViewModelFactory) {
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                     vm.clearMessage()
                     if (msg == "Post saved") {
+                        navController.previousBackStackEntry
+                            ?.savedStateHandle
+                            ?.set(REFRESH_POSTS_KEY, true)
                         navController.popBackStack()
                     }
                 }
@@ -212,6 +216,9 @@ fun DinanaNavHost(factory: ViewModelFactory) {
                     Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                     vm.clearMessage()
                     if (msg == "Post saved") {
+                        navController.previousBackStackEntry
+                            ?.savedStateHandle
+                            ?.set(REFRESH_POSTS_KEY, true)
                         navController.popBackStack()
                     }
                 }
@@ -255,7 +262,11 @@ fun DinanaNavHost(factory: ViewModelFactory) {
                 onRepoChange = { vm.updateRepo(it) },
                 onBranchChange = { vm.updateBranch(it) },
                 onSave = {
-                    vm.saveSettings()
+                    if (vm.saveSettings()) {
+                        navController.previousBackStackEntry
+                            ?.savedStateHandle
+                            ?.set(REFRESH_POSTS_KEY, true)
+                    }
                     navController.popBackStack()
                 },
                 onBack = { navController.popBackStack() },

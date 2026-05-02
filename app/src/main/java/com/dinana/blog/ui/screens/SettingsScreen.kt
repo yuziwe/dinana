@@ -3,6 +3,13 @@ package com.dinana.blog.ui.screens
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -12,12 +19,17 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -81,7 +93,16 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings") },
+                title = {
+                    Column {
+                        Text("Settings")
+                        Text(
+                            text = if (isConfigured) "Repository connected" else "Repository required",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -98,20 +119,14 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 18.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            Text(
-                text = "GitHub Configuration",
-                style = MaterialTheme.typography.titleLarge
+            SettingsSection(
+                title = "GitHub repository",
+                body = "Use a personal access token with repo scope."
             )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = "A GitHub Personal Access Token with repo scope is required.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
 
             OutlinedTextField(
                 value = token,
@@ -122,29 +137,23 @@ fun SettingsScreen(
                 visualTransformation = PasswordVisualTransformation(),
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
             OutlinedTextField(
                 value = owner,
                 onValueChange = onOwnerChange,
                 label = { Text("Repository Owner") },
-                placeholder = { Text("e.g. owner") },
+                placeholder = { Text("owner") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
                 value = repo,
                 onValueChange = onRepoChange,
                 label = { Text("Repository Name") },
-                placeholder = { Text("e.g. repo-name") },
+                placeholder = { Text("repo-name") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
-
-            Spacer(modifier = Modifier.height(16.dp))
 
             OutlinedTextField(
                 value = branch,
@@ -155,33 +164,56 @@ fun SettingsScreen(
                 singleLine = true
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
-
             Button(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = token.isNotBlank() && owner.isNotBlank() && repo.isNotBlank()
             ) {
+                Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text("Save")
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp))
+
+            SettingsSection(
+                title = "Updates",
+                body = "Check GitHub Releases for a newer APK."
+            )
 
             OutlinedButton(
                 onClick = onCheckUpdate,
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isCheckingUpdate
             ) {
-                if (isCheckingUpdate) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.size(8.dp))
+                AnimatedContent(
+                    targetState = isCheckingUpdate,
+                    transitionSpec = {
+                        fadeIn(animationSpec = tween(150)) togetherWith
+                            fadeOut(animationSpec = tween(100))
+                    },
+                    label = "checking-update"
+                ) { checking ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (checking) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.SystemUpdate,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(if (checking) "Checking..." else "Check for Updates")
+                    }
                 }
-                Text("Check for Updates")
             }
 
-            if (appVersion.isNotBlank()) {
-                Spacer(modifier = Modifier.height(24.dp))
+            AnimatedVisibility(visible = appVersion.isNotBlank()) {
                 Text(
                     text = "App version: $appVersion",
                     style = MaterialTheme.typography.bodySmall,
@@ -235,6 +267,7 @@ fun SettingsScreen(
                 if (!isDownloading) {
                     TextButton(onClick = {
                         isDownloading = true
+                        downloadError = null
                         scope.launch {
                             try {
                                 val apkAsset = release.assets.firstOrNull { it.name.endsWith(".apk") }
@@ -249,6 +282,7 @@ fun SettingsScreen(
                                     onDismissUpdate()
                                 }
                             } catch (e: Exception) {
+                                downloadError = "Download failed: ${e.message}"
                                 isDownloading = false
                             }
                         }
@@ -264,6 +298,21 @@ fun SettingsScreen(
                     }
                 }
             }
+        )
+    }
+}
+
+@Composable
+private fun SettingsSection(title: String, body: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge
+        )
+        Text(
+            text = body,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
