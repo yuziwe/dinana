@@ -1,113 +1,61 @@
 # Dinana
 
-An Android app for managing a [Hexo](https://hexo.io/) blog hosted on GitHub. Write, edit, and publish markdown posts directly from your phone.
+Dinana is an Android app for writing and publishing a [Hexo](https://hexo.io/) blog from your phone. It connects directly to a GitHub-hosted blog repository, so you can create posts, edit drafts, add images, and push changes without opening a laptop.
 
-## Features
+## What It Does
 
-- **Post management** — list, create, edit, and delete Hexo blog posts
-- **Markdown editor** — write in markdown with a live preview powered by Markwon
-- **Image upload** — insert images from your gallery; they're uploaded alongside the post
-- **GitHub integration** — uses the GitHub Contents API and Git Data API to commit directly to your blog repo
-- **Pull-to-refresh** — swipe to reload the post list
-- **Sorting** — sort posts by name or publish date (parsed from front matter)
-- **Auto-update** — checks for new versions on startup; downloads and installs APK with one tap
-- **Theme** — GitHub-inspired light and dark mode, adaptive status bar
+- Browse posts stored in `source/_posts/`
+- Create, edit, and delete Markdown posts
+- Preview Markdown before publishing
+- Insert images from your device gallery
+- Commit posts and images directly to GitHub
+- Sort posts by publish date or filename
+- Check for app updates from GitHub Releases
+- Use a clean light or dark theme
 
 ## Requirements
 
-- Android 8.0 (API 26) or later
-- A GitHub Personal Access Token with `repo` scope
-- A Hexo blog repository on GitHub with posts in `source/_posts/`
+- Android 8.0 or later
+- A GitHub personal access token with `repo` access
+- A Hexo blog repository on GitHub
+- Posts stored in the standard Hexo path: `source/_posts/`
 
-## Setup
+## Getting Started
 
-1. Install the APK on your device
-2. Open the app and tap the Settings icon
-3. Enter your GitHub Personal Access Token, repository owner, repository name, and branch
-4. Go back — your posts will load automatically
+1. Download and install the latest APK from GitHub Releases.
+2. Open Dinana.
+3. Go to Settings.
+4. Enter your GitHub token, repository owner, repository name, and branch.
+5. Return to the post list and start writing.
 
-## Build
+Dinana saves your GitHub token and repository settings in encrypted Android storage.
 
-```bash
-# Build debug APK
-./gradlew assembleDebug
+## How Publishing Works
 
-# Build and install on connected device
-./gradlew installDebug
+Dinana writes Markdown files directly into your blog repository. New posts are created with Hexo front matter, and images are uploaded beside the post in `source/_posts/{slug}/`.
 
-# Build signed release APK (requires keystore.properties)
-./gradlew assembleRelease
+Simple post edits are committed as a single file update. Posts with images are committed together with their image files so the content and assets stay in sync.
 
-# Check for compilation errors
-./gradlew compileDebugKotlin
-```
+## Updating
 
-### Release signing
+Dinana can check GitHub Releases for newer versions. When an APK release is available, the app can download it and open the Android installer.
 
-For local release builds, create `keystore.properties` at the project root:
+## For Contributors
 
-```properties
-storeFile=release.jks
-storePassword=your-keystore-password
-keyAlias=dinana
-keyPassword=your-key-password
-```
+This is a Kotlin Android app built with Jetpack Compose and Material 3.
 
-Generate a keystore if you don't have one:
+Useful commands:
 
 ```bash
-keytool -genkey -v -keystore release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias dinana
+./gradlew assembleDebug       # build a debug APK
+./gradlew installDebug        # install on a connected device
+./gradlew compileDebugKotlin  # quick compile check
+./gradlew lint                # run Android lint
 ```
 
-## Release
+On Windows PowerShell, use `.\gradlew.bat`.
 
-Pushing a tag matching `v*` (e.g. `v1.1.0`) triggers CI to build and sign a release APK and create a GitHub Release with the APK attached. The app version is automatically derived from the tag at build time.
-
-```bash
-git tag v1.1.0
-git push origin v1.1.0
-```
-
-Manual workflow dispatch is also available for testing (builds APK without creating a release).
-
-## Tech Stack
-
-| Layer | Choice |
-|---|---|
-| Language | Kotlin |
-| UI | Jetpack Compose + Material 3 |
-| Navigation | Jetpack Navigation Compose |
-| HTTP | OkHttp (no Retrofit) |
-| Serialization | kotlinx.serialization |
-| Auth storage | EncryptedSharedPreferences (AES-256) |
-| Markdown rendering | Markwon + Glide |
-| Architecture | Manual DI via `AppContainer` + `ViewModelFactory` |
-
-## Architecture
-
-The app follows a simple MVVM pattern with manual dependency injection:
-
-```
-AppContainer (Application)
-  ├── TokenManager         — Encrypted storage for GitHub credentials
-  ├── GitHubApi            — OkHttp client for GitHub REST API
-  └── BlogRepository       — Maps API responses to BlogPost domain model
-
-ViewModels (StateFlow<UiState>)
-  ├── PostListViewModel    — Post listing, deletion, sort
-  ├── EditorViewModel      — Post editing, saving, image upload
-  └── SettingsViewModel    — GitHub configuration
-
-Compose Screens
-  ├── PostListScreen       — Post list with pull-to-refresh
-  ├── EditorScreen         — Markdown editor with preview toggle
-  └── SettingsScreen       — GitHub credentials form, update check
-
-Utilities
-  └── UpdateUtils          — APK download and package installer
-```
-
-Blog posts live in `source/_posts/` in your GitHub repo. The app uses the GitHub Contents API for single-file operations and the Git Data API for batch commits (save with images, delete with assets).
+See [AGENTS.md](AGENTS.md) for repository structure, coding conventions, and contribution notes.
 
 ## License
 
